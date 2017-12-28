@@ -1,0 +1,31 @@
+# The files in this directory provide a simple way to expose
+# functions or entire modules to the AXL environment, making
+# them accessible to excel. To use this, create a file called
+# imports.<name>, where <name> would typically be the name of
+# the package it is associated with, although it technically
+# need only be unique. In this file, include one or more of
+# the following standard Python import commands:
+#
+#    from <module> import *
+#    from <module> import <sym1>, <sym2>, ... <symN>
+#    import <module>
+#
+# Note that this is *not* parsed as pure Python, so only one
+# of these three templates may be used. Comments are ignored.
+# For example, the following line
+#
+# 	from pandas import DataFrame, Index   # ignore this comment
+#
+# makes symbols DataFrame and Index accessible from AXL.
+#
+# AXL does not permit imports to clash at the top level. That is,
+# two different import.<name> files may not specify different
+# objects to be imported into the same name. For instance
+#
+#   from foo import symbol_A
+#   from bar import symbol_A
+#
+# and foo.symbol_A and bar.symbol_A do not point to the same object,
+# an error will be raised.
+
+from axl.methods import *
