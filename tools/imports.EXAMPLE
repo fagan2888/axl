@@ -7,8 +7,8 @@
 # the following standard Python import commands:
 #
 #    from <module> import *
-#    from <module> import <sym1>, <sym2>, ... <symN>
-#    import <module>
+#    from <module> import <sym1> [as <name1>], <sym2>, ... <symN>
+#    import <module> [as <name>]
 #
 # Note that this is *not* parsed as pure Python, so only one
 # of these three templates may be used. Comments are ignored.
@@ -26,6 +26,13 @@
 #   from bar import symbol_A
 #
 # and foo.symbol_A and bar.symbol_A do not point to the same object,
-# an error will be raised.
+# an error will be raised. Use the renaming capability to avoid
+# such naming conflicts; for instance,
+#
+#   from foo import symbol_A as symbol_A_foo
+#   from bar import symbol_A as symbol_A_bar
+#
+# The following import is 100% redundant; AXL includes an internal
+# import for this already. It is provided simply as an example.
 
 from axl.methods import *
