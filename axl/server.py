@@ -39,7 +39,7 @@ class CommandLoop(object):
             self.dolog_ = bool(active)
         return ans
 
-    def validate_name_(name):
+    def _validate_name(self, name):
         if type(name) is not str:
             raise RuntimeError("Name must be a string, got this instead: "+str(name))
         elif name == '' or name == '0':
@@ -58,7 +58,7 @@ class CommandLoop(object):
             data used to construct the object is changed, Excel will
             automatically recalculate the object's value (unless automatic
             recalculation is disabled).'''
-        validate_name_(name)
+        self._validate_name(name)
         self.cache_[name] = obj
         return name
 
@@ -73,7 +73,7 @@ class CommandLoop(object):
             because a failure to find an object may be due to an out-of-order
             calculation by Excel. By silently failing, Excel allows the full
             recalculation to eventually complete.'''
-        validate_name_(name)
+        self._validate_name(name)
         return self.cache_.get(str(name))
 
     def Call(self, queue):
