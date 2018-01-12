@@ -453,7 +453,9 @@ def DFCols(obj, columns=None, exclude=None, sortby=None, ascending=True):
         if any(x in columns for x in inames):
             obj = obj.reset_index()
             dropped = True
-        obj = obj.sort(list(sortby), ascending=list(ascending))
+        # To avoid an otherwise unnecessary Pandas version restriction
+        sfunc = getattr(obj, 'sort_values', 'sort')
+        obj = sfunc(list(sortby), ascending=list(ascending))
     if not dropped:
         obj = obj.reset_index()
     return obj[columns]
