@@ -174,7 +174,7 @@ def MatDF(*args, **kwargs):
         a Pandas dataframe.'''
     n = len(args)
     labels = kwargs.pop('labels', None)
-    if labels:
+    if kwargs:
         raise TypeError('Unexpected keyword arguments: %s' % ', '.join(kwargs))
     if labels is None and n > 0 and type(args[-1]) is tuple and not any(type(y) is tuple for y in args[-1]):
         labels = args[-1]
@@ -362,6 +362,17 @@ def Echo(*args):
     return str(args)
 
 
+def Repr(arg):
+    '''Returns a string representation of its input argument tuple.
+    Useful for debugging purposes.
+
+    Inputs:
+        A single input.
+    Outputs:
+        A string representation of the input; specifically repr(arg).'''
+    return repr(arg)
+
+
 def Grab(arg):
     '''Returns its argument. Sometimes used by the Excel connector.''
     Inputs:
@@ -369,6 +380,7 @@ def Grab(arg):
     Outputs:
         That thing.'''
     return arg
+
 
 def Extract(obj, *cols, **kwargs):
     '''Extract values from a single row of a DataFrame. The last argument specifies

@@ -11,6 +11,7 @@ import pythoncom
 
 from .converters import from_excel
 from .imports import _imports
+from . import methods
 
 class CommandLoop(object):
     _public_methods_ = ['Call']
@@ -20,7 +21,7 @@ class CommandLoop(object):
     dolog_ = True
     cache_ = {}
 
-    def Log(self, active=None):
+    def Log(self, *args):
         '''Activates/deactivates logging, and returns the log output.
 
         Inputs:
@@ -35,8 +36,8 @@ class CommandLoop(object):
             self.log_ = []
         else:
             ans = 'None'
-        if active is not None:
-            self.dolog_ = bool(active)
+        if args and args[0] is not None:
+            self.dolog_ = bool(args[0])
         return ans
 
     def _validate_name(self, name):
@@ -84,10 +85,10 @@ class CommandLoop(object):
         if self.dolog_:
             vnames = []
             for val in queue:
-                if val[0] == 'Save':
+                if val[0] == '%Save':
                     vname = "'" + val[1] + "'"
                     vnames[int(val[2][2:])] = val[1]
-                elif val[0] == 'Load':
+                elif val[0] == '%Load':
                     vname = val[1]
                 else:
                     vname = '_' + str(len(vnames))
@@ -129,8 +130,13 @@ class CommandLoop(object):
                     Error encountered parsing Python function "{}":
                     Missing argument value for keyword "{}"'''.format(fname, key)
             try:
-                if fname in self._local_methods:
+                if fname.startswith('%'):
                     obj = self
+                    fname = fname[1:]
+                elif fname.startswith('@'):
+                    obj = methods
+                    oname = 'axlm' + '.'
+                    fname = fname[1:]
                 elif fname.startswith('.'):
                     oname = xargs[0] + '.'
                     fname = fname[1:]
