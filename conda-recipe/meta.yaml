@@ -18,5 +18,5 @@ requirements:
   run:
     - python
     - pywin32
-    - pandas >=0.17
+    - pandas
 
