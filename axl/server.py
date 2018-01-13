@@ -84,14 +84,12 @@ class CommandLoop(object):
         vals = []
         if self.dolog_:
             vnames = []
-            for val in queue:
-                if val[0] == '%Save':
-                    vname = "'" + val[1] + "'"
-                    vnames[int(val[2][2:])] = val[1]
-                elif val[0] == '%Load':
+            for ndx, val in enumerate(queue):
+                vname = '_%d' % ndx
+                if val[0] == '%Load':
                     vname = val[1]
-                else:
-                    vname = '_' + str(len(vnames))
+                elif val[0] == '%Save' and type(val[2]) is str and val[2].startswith('!$'):
+                    vnames[int(val[2][2:])] = vname = val[1]
                 vnames.append(vname)
         for val in queue:
             fname = val[0]
