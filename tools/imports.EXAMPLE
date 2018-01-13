@@ -32,7 +32,8 @@
 #   from foo import symbol_A as symbol_A_foo
 #   from bar import symbol_A as symbol_A_bar
 #
-# The following import is 100% redundant; AXL includes an internal
-# import for this already. It is provided simply as an example.
+# Since AXL requires these modules anyway, there is little lost by
+# including them by default in the Excel-available namespace. Still,
+# this file an be edited and these symbols removed.
 
-from axl.methods import *
+import math, numpy, pandas
