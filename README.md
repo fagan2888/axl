@@ -2,10 +2,15 @@
 
 Python excel add-ins, made easy!
 
-# Requirements
+# axl requirements
+
+- pywin32
+- pandas
+
+# System Requirements
 
 - Microsoft Excel
-- Windows 64 Bit
+- Microsoft Windows
 - Anaconda or Miniconda
 
 # Installing
