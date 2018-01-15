@@ -4,6 +4,7 @@ Python excel add-ins, made easy!
 
 # axl requirements
 
+- python 2.7, 3.4, 3.5, or 3.6
 - pywin32
 - pandas
 
