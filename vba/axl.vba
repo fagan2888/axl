@@ -64,7 +64,6 @@ Private Function Push(FName As String, ParamArray EArgs() As Variant)
 End Function
 
 Private Sub ToExcel(Headers As Boolean)
-    If Stack(StackNdx - 1)(0) = "ToExcel" Then Exit Sub
     Dim R As Integer
     Dim C As Integer
     If IsObject(Application.Caller) Then
@@ -74,7 +73,11 @@ Private Sub ToExcel(Headers As Boolean)
         R = 1
         C = 1
     End If
-    X "@ToExcel", "!$" + Str(StackNdx - 1), R, C, Headers
+    If Headers Then
+        X "@ToExcel", "!$" + Str(StackNdx - 1), R, C
+    Else
+        X "@ToExcel", "!$" + Str(StackNdx - 1), R, C, False
+    End If
 End Sub
 
 Private Function Exec()
@@ -83,13 +86,18 @@ Private Function Exec()
     Dim i As Integer
     Valid = StackNdx > 0
     If Valid Then
-        ReDim Args(0 To StackNdx - 1)
+        ReDim Args(0 To StackNdx)
         Valid = True
         For i = 0 To StackNdx - 1
             If TypeName(Stack(i)) = "Error" Then Valid = False
             Args(i) = Stack(i)
             Stack(i) = 0
         Next i
+        If IsObject(Application.Caller) Then
+            Args(StackNdx) = Application.Caller.Address(External:=True)
+        Else
+            Args(StackNdx) = ""
+        End If
         StackNdx = 0
     End If
     Valid = Valid And Not AbortAll
@@ -140,9 +148,7 @@ Function X(FName As String, ParamArray Args() As Variant)
 End Function
 
 Function P(FName As String, ParamArray Args() As Variant)
-    If Left(FName, 2) = "!$" And UBound(Args, 1) < LBound(Args, 1) Then
-        X "@Grab", FName
-    Else
+    If Left(FName, 2) <> "!$" Then
         Push FName, Args
     End If
     ToExcel True
@@ -202,25 +208,43 @@ Function MatDF(ParamArray Args() As Variant)
     MatDF = Push("@MatDF", Args)
 End Function
 
-Function Repr(Arg As String)
-    Repr = P("@Repr", Arg)
+Function Repr(Arg As Variant)
+    X "@Repr", Arg
+    Repr = Exec()
+End Function
+
+Function PySave(FName As String, Arg As Variant)
+    If Not IsObject(Application.Caller) Then
+        MsgBox "PySave must be called within a cell"
+        PySave = CVErr(xlErrValue)
+    ElseIf Application.Caller.Count <> 1 Then
+        MsgBox "PySave cannot be used in an array function"
+        PySave = CVErr(xlErrValue)
+    Else
+        X "%Save", FName, Application.Caller.Address(External:=True), Arg
+        PySave = Exec()
+    End If
 End Function
 
 Function S(FName As String, Func As String, ParamArray Args() As Variant)
-    S = P("%Save", FName, Push(Func, Args))
+    S = PySave(FName, Push(Func, Args))
 End Function
 
-Function PySave(FName As String, Arg As String)
-    PySave = P("%Save", FName, Arg)
+Function PyLoad(FName As Variant)
+    Dim FType As String
+    If TypeName(FName) <> "Range" Then
+        MsgBox "Argument to Load() must be a cell reference, not a " & TypeName(FName)
+        PyLoad = CVErr(xlErrValue)
+    ElseIf FName.Count <> 1 Then
+        MsgBox "Argument to Load() must be a single cell"
+        PyLoad = CVErr(xlErrValue)
+    Else
+        PyLoad = X("%Load", FName.Value2, FName.Address(External:=True))
+    End If
 End Function
 
 Function L(FName As Variant)
-    If TypeName(FName) = "Range" Then FName = FName.Value2
-    L = X("%Load", FName)
-End Function
-
-Function PyLoad(FName As String)
-    PyLoad = X("%Load", FName)
+    L = PyLoad(FName)
 End Function
 
 Function DFCols(FName As Variant, Columns As Variant, Optional SortBy As Variant, Optional Ascending As Variant)
