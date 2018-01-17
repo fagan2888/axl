@@ -16,7 +16,7 @@ Python excel add-ins, made easy!
 
 # Installing
 
-In your conda environment, run `conda install -c mcg axl` to install the
+In your conda environment, run `conda install -c axl axl` to install the
 package.
 
 # Adding the Excel Plugin
