@@ -221,8 +221,9 @@ Function PySave(FName As String, Arg As Variant)
         MsgBox "PySave cannot be used in an array function"
         PySave = CVErr(xlErrValue)
     Else
-        X "%Save", FName, Application.Caller.Address(External:=True), Arg
-        PySave = Exec()
+        X "%Save", Application.Caller.Address(External:=True), Arg
+        Exec
+        PySave = FName
     End If
 End Function
 
@@ -239,7 +240,7 @@ Function PyLoad(FName As Variant)
         MsgBox "Argument to Load() must be a single cell"
         PyLoad = CVErr(xlErrValue)
     Else
-        PyLoad = X("%Load", FName.Value2, FName.Address(External:=True))
+        PyLoad = X("%Load", FName.Address(External:=True))
     End If
 End Function
 

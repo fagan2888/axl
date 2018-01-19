@@ -3,3 +3,4 @@ __pycache__/
 tests/.ipynb_checkpoints/
 .ipynb_checkpoints/
 build
+axl.egg-info/
