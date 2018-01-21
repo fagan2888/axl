@@ -148,8 +148,8 @@ class CommandLoop(object):
                     Error encountered executing Python function {}:
                         {}: {}
                         {}'''.format(cmd_name, estr[0].__name__, str(estr[1]), tt)
+            output_values.append(output_value)
             if dolog:
-                output_values.append(output_value)
                 output_reprs.append(output_repr)
 
         # Wrap in an extra tuple so the calling function does not
