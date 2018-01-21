@@ -70,14 +70,13 @@ class CommandLoop(object):
         # Process the calls in order, pushing the results onto a
         # result stack for potential later use. The top of the stack
         # will be returned by the function.
+        commands, arguments = queue
         output_values = []
-        output_range = queue[-1]
+        output_range = commands[0]
         if self.dolog_:
             output_reprs = []
             output_repr = ''
-        for ndx, cmd in enumerate(queue[:-1]):
-            cmd_name = cmd[0]
-            cmd_args = cmd[1:]
+        for cmd_name, cmd_args in zip(commands[1:], arguments[1:]):
             dolog = self.dolog_
             args = []
             kwargs = {}

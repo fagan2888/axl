@@ -22,45 +22,41 @@ Option Explicit
 #End If
 
 Dim AbortAll As Boolean
-Dim StackNdx As Integer
-Dim StackCell As String
-Dim Stack(0 To 31) As Variant
+Dim StackValid As Boolean
+Dim Stack() As Variant
 Dim PyLoaded As Boolean
 Dim PP As Variant
 
 Private Function Push(FName As String, ParamArray EArgs() As Variant)
+    Dim Ndx As Integer
+    Dim Args As Variant
+    Args = EArgs(0)
+    For Ndx = 0 To UBound(Args)
+        Select Case TypeName(Args(Ndx))
+        Case "Error"
+            StackValid = False
+        Case "Range"
+            Args(Ndx) = Args(Ndx).Value
+        End Select
+    Next Ndx
+    If Not StackValid Then
+        ReDim Preserve Stack(0 To 1, 0 To 0)
+        StackValid = True
+        Stack(0, 0) = "@"
+        Stack(1, 0) = 0
+    End If
     Dim CC As String
     CC = Application.Caller.Address(External:=True)
-    If CC <> StackCell Then
-        StackNdx = 0
-    ElseIf StackNdx > UBound(Stack, 1) Then
-        MsgBox "Maximum Python function nesting limit exceeded"
-        Push = CVErr(xlErrValue)
-        Exit Function
+    If CC <> Stack(0, 0) Then
+        Stack(0, 0) = CC
+        Ndx = 1
+    Else
+        Ndx = UBound(Stack, 2) + 1
     End If
-    Dim i As Integer
-    Dim Args As Variant
-    Dim Entry() As Variant
-    Dim UB As Integer
-    Args = EArgs(0)
-    UB = UBound(Args)
-    ReDim Entry(0 To UB + 1)
-    Entry(0) = FName
-    For i = 0 To UB
-        Select Case TypeName(Args(i))
-        Case "Error"
-            Push = Args(i)
-            Exit Function
-        Case "Range"
-            Entry(i + 1) = Args(i).Value
-        Case Else
-            Entry(i + 1) = Args(i)
-        End Select
-    Next i
-    Stack(StackNdx) = Entry
-    Push = "!$" + Str(StackNdx)
-    StackNdx = StackNdx + 1
-    StackCell = CC
+    ReDim Preserve Stack(0 To 1, 0 To Ndx)
+    Stack(0, Ndx) = FName
+    Stack(1, Ndx) = Args
+    Push = "!$" + Str(Ndx - 1)
 End Function
 
 Private Sub ToExcel(Headers As Boolean)
@@ -73,34 +69,19 @@ Private Sub ToExcel(Headers As Boolean)
         R = 1
         C = 1
     End If
+    Dim Ndx As Integer
+    Ndx = UBound(Stack, 2)
     If Headers Then
-        X "@ToExcel", "!$" + Str(StackNdx - 1), R, C
+        X "@ToExcel", "!$" + Str(Ndx - 1), R, C
     Else
-        X "@ToExcel", "!$" + Str(StackNdx - 1), R, C, False
+        X "@ToExcel", "!$" + Str(Ndx - 1), R, C, False
     End If
 End Sub
 
 Private Function Exec()
     Dim Valid As Boolean
-    Dim Args() As Variant
     Dim i As Integer
-    Valid = StackNdx > 0
-    If Valid Then
-        ReDim Args(0 To StackNdx)
-        Valid = True
-        For i = 0 To StackNdx - 1
-            If TypeName(Stack(i)) = "Error" Then Valid = False
-            Args(i) = Stack(i)
-            Stack(i) = 0
-        Next i
-        If IsObject(Application.Caller) Then
-            Args(StackNdx) = Application.Caller.Address(External:=True)
-        Else
-            Args(StackNdx) = ""
-        End If
-        StackNdx = 0
-    End If
-    Valid = Valid And Not AbortAll
+    Valid = StackValid And Not AbortAll
     If Valid And Not PyLoaded Then
         Dim LongResult As Long
         LongResult = LoadLibrary(ThisWorkbook.Path + "\" + XLPyDLLName)
@@ -121,7 +102,7 @@ Private Function Exec()
     If Valid Then
         Dim TName As String
         On Error Resume Next
-        Exec = PP.Call(Args)
+        Exec = PP.Call(Stack)
         TName = TypeName(Exec)
         If Err <> 0 Then
             MsgBox Err.Description
@@ -129,15 +110,16 @@ Private Function Exec()
         ElseIf TName = "Null" Then
             Exec = CVErr(xlErrNA)
         ElseIf TName = "String" Then
-           ' If Left(Exec, 8) = "#PYTHON?" Then
-           '     MsgBox Mid(Exec, 10)
-           '     Valid = False
-           ' ElseIf Len(Exec) > 32767 Then
-           '
-           ' End If
-           Exec = Left(Exec, 32767)
+            ' If Left(Exec, 8) = "#PYTHON?" Then
+            '     MsgBox Mid(Exec, 10)
+            '     Valid = False
+            ' ElseIf Len(Exec) > 32767 Then
+            '
+            ' End If
+            Exec = Left(Exec, 32767)
         End If
     End If
+    StackValid = False
     If Not Valid Then
         Exec = CVErr(xlErrValue)
     End If
