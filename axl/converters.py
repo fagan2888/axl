@@ -144,7 +144,7 @@ def from_excel(val):
     return cleanin(val)
 
 
-def to_excel(val, nr, nc, headers):
+def to_excel(val, nr, nc, headers=True):
     nr = int(nr)
     nc = int(nc)
     if nr < 0 or nc < 0:

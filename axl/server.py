@@ -8,6 +8,7 @@ import win32com.server.dispatcher
 import win32com.server.policy
 import win32api
 import pythoncom
+import re
 
 from .converters import from_excel
 from .imports import _imports
@@ -18,7 +19,7 @@ class CommandLoop(object):
     _local_methods = ['Log', 'Save', 'Load']
 
     log_ = []
-    dolog_ = True
+    dolog_ = False
     cache_ = {}
 
     def Log(self, *args):
@@ -35,82 +36,67 @@ class CommandLoop(object):
             ans = "\n".join(self.log_)
             self.log_ = []
         else:
-            ans = 'None'
+            ans = ''
         if args and args[0] is not None:
             self.dolog_ = bool(args[0])
         return ans
 
-    def _validate_name(self, name):
-        if type(name) is not str:
-            raise RuntimeError("Name must be a string, got this instead: "+str(name))
-        elif name == '' or name == '0':
-            raise RuntimeError("Name must not be empty or '0'")
-
-    def Save(self, name, obj):
+    def Save(self, addr, obj):
         '''Saves the specified object to the Excel cache for later use.
 
         Inputs:
-            name: a string containing the name of the object to save. The
-                string must not be empty, nor must it be the value '0'.
-            obj: the Python object to save.
-        Outputs:
-            The name string. In Excel, the cell that stores this string
-            becomes a placeholder for this Python object. Whenever the
-            data used to construct the object is changed, Excel will
-            automatically recalculate the object's value (unless automatic
-            recalculation is disabled).'''
-        self._validate_name(name)
-        self.cache_[name] = obj
-        return name
+            addr: the address of the Excel cell where this data is "saved".
+            obj: the Python object to save.'''
+        self.cache_[addr] = obj
 
-    def Load(self, name):
+    def Load(self, addr):
         '''Loads the specified object from the Excel cache.
 
         Inputs:
-            name: a string containing the name of the object to load.
+            addr: the address of the Excel cell where this data is "saved".
         Outputs:
             The object stored under the given name. If there is no such
             object, None is returned. No errors are returned in this case,
             because a failure to find an object may be due to an out-of-order
             calculation by Excel. By silently failing, Excel allows the full
             recalculation to eventually complete.'''
-        self._validate_name(name)
-        return self.cache_.get(str(name))
+        return self.cache_.get(addr)
+
+    @staticmethod
+    def range2var(rng):
+        return rng.rsplit(']', 1)[-1].replace('!','_').replace(' ','').replace('$','').replace(':','_').replace('Sheet1_','')
 
     def Call(self, queue):
         # Process the calls in order, pushing the results onto a
         # result stack for potential later use. The top of the stack
         # will be returned by the function.
-        vals = []
+        output_values = []
+        output_range = queue[-1]
         if self.dolog_:
-            vnames = []
-            for ndx, val in enumerate(queue):
-                vname = '_%d' % ndx
-                if val[0] == '%Load':
-                    vname = val[1]
-                elif val[0] == '%Save' and type(val[2]) is str and val[2].startswith('!$'):
-                    vnames[int(val[2][2:])] = vname = val[1]
-                vnames.append(vname)
-        for val in queue:
-            fname = val[0]
+            output_reprs = []
+            output_repr = ''
+        for ndx, cmd in enumerate(queue[:-1]):
+            cmd_name = cmd[0]
+            cmd_args = cmd[1:]
+            dolog = self.dolog_
             args = []
-            xargs = []
             kwargs = {}
             key = None
-            for k2 in range(1, len(val)):
-                arg = from_excel(val[k2])
+            if self.dolog_:
+                arg_reprs = []
+            for arg in map(from_excel, cmd_args):
                 if self.dolog_:
-                    xarg = repr(arg)
+                    arg_repr = repr(arg)
                 tstr = type(arg) is str
                 if tstr and arg[:2] == '!$':
                     arg = int(arg[2:])
-                    if self.dolog_:
-                        xarg = vnames[arg]
-                    arg = vals[arg]
+                    if dolog:
+                        arg_repr = output_reprs[arg]
+                    arg = output_values[arg]
                     tstr = False
                 if key is not None:
                     if self.dolog_:
-                        xargs.append(key + '=' + str(xarg))
+                        arg_reprs.append('{}={}'.format(key, arg_repr))
                     kwargs[key] = arg
                     key = None
                 elif tstr and arg[-1:] == '=':
@@ -118,50 +104,61 @@ class CommandLoop(object):
                 elif kwargs:
                     return '''#PYTHON?
                         Error encountered parsing Python function "{}":
-                        Expected a keyword string, found this: {}'''.format(fname, str(arg))
+                        Expected a keyword string, found this: {}'''.format(cmd_name, repr(arg))
                 else:
                     args.append(arg)
-                    if self.dolog_:
-                        xargs.append(str(xarg))
+                    if dolog:
+                        arg_reprs.append(arg_repr)
             if key is not None:
                 return '''#PYTHON?
                     Error encountered parsing Python function "{}":
-                    Missing argument value for keyword "{}"'''.format(fname, key)
+                    Missing argument value for keyword "{}"'''.format(cmd_name, key)
             try:
-                if fname.startswith('%'):
-                    obj = self
-                    fname = fname[1:]
-                elif fname.startswith('@'):
-                    obj = methods
-                    oname = 'axlm' + '.'
-                    fname = fname[1:]
-                elif fname.startswith('.'):
-                    oname = xargs[0] + '.'
-                    fname = fname[1:]
-                    xargs = xargs[1:]
-                    obj = getattr(args[0], fname)
+                if cmd_name.startswith('%'):
+                    cmd_name = cmd_name[1:]
+                    obj = getattr(self, cmd_name)
+                    if self.dolog_:
+                        if cmd_name == 'Load':
+                            output_repr = self.range2var(args[0])
+                        elif cmd_name == 'Save' and not (type(cmd_args[1]) is str and cmd_args[1].startswith('!$')):
+                            output_repr = arg_reprs[1]
+                elif cmd_name.startswith('@'):
+                    cmd_name = cmd_name[1:]
+                    obj = getattr(methods, cmd_name)
+                    if self.dolog_:
+                        output_repr = 'axlm.{}({})'.format(cmd_name, ', '.join(arg_reprs))
                 else:
-                    obj = _imports
-                    oname = ''
-                if self.dolog_ and obj is not self:
-                    self.log_.append('{} = {}{}({})'.format(vnames[len(vals)], oname, fname, ','.join(xargs)))
-                for ftok in fname.split('.'):
-                    obj = getattr(obj, ftok)
-                val = obj(*args, **kwargs)
+                    cmd_parts = cmd_name.split('.')
+                    if cmd_parts[0] == '':
+                        obj = args[0]
+                        cmd_name = cmd_name[1:]
+                        if self.dolog_:
+                            output_repr = '{}.{}({})'.format(arg_reprs[0], cmd_name, ', '.join(arg_reprs[1:]))
+                    else:
+                        obj = _imports if hasattr(_imports, cmd_parts[0]) else __builtins__
+                        if self.dolog_:
+                            output_repr = '{}({})'.format(cmd_name, ', '.join(arg_reprs))
+                    for ftok in cmd_parts:
+                        obj = getattr(obj, ftok)
+                output_value = obj(*args, **kwargs)
             except:
                 estr = exc_info()
                 tt = "   ".join(format_tb(estr[2]))
                 return '''#PYTHON?
                     Error encountered executing Python function {}:
                         {}: {}
-                        {}'''.format(fname, estr[0].__name__, str(estr[1]), tt)
-            if val is None:
-                break
-            vals.append(val)
+                        {}'''.format(cmd_name, estr[0].__name__, str(estr[1]), tt)
+            output_values.append(output_value)
+            if dolog:
+                output_reprs.append(output_repr)
 
         # Wrap in an extra tuple so the calling function does not
         # attempt to unpack it.
-        return (val,) if type(val) is tuple else val
+        if dolog and output_repr:
+            final_name = self.range2var(output_range) if output_range else '_Out'
+            final_line = '{} = {}'.format(final_name, output_repr)
+            self.log_.append(final_line)
+        return (output_value,) if type(output_value) is tuple else output_value
 
 
 def execute(clsid):
